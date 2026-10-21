@@ -1682,7 +1682,7 @@ public class AiController {
         final long timeoutNanos = TimeUnit.SECONDS.toNanos(game.getAITimeout());
         AITimeoutTracker.begin(aiId, timeoutNanos);
         final long deadlineNanos = AITimeoutTracker.deadlineNanos(aiId, timeoutNanos);
-        FutureTask<SpellAbility> future = new FutureTask<>(() -> {
+        final Callable<SpellAbility> eval = () -> {
             // the eval thread aborts itself at the shared deadline (or when cancelled) instead of running on as a zombie
             final Object evalLimit = AITimeoutTracker.arm(deadlineNanos, true);
             try {
@@ -1773,48 +1773,10 @@ public class AiController {
             } finally {
                 AITimeoutTracker.disarm(evalLimit); // matters as soon as this runs on a pooled thread
             }
-        });
-        Thread t = new Thread(future, "Game AI Eval");
-        t.setDaemon(true);
-        t.start();
+        };
         try {
-            // wait only for what is left of the shared deadline (not a fresh full timeout per call)
-            return future.get(Math.max(0, deadlineNanos - System.nanoTime()), TimeUnit.NANOSECONDS);
-        } catch (InterruptedException | ExecutionException | TimeoutException e) {
-            e.printStackTrace();
-            if (e instanceof TimeoutException) {
-                // log where the eval thread currently is - each timeout doubles as a
-                // profiler sample for diagnosing remaining AI slowdowns from user logs
-                StringBuilder sb = new StringBuilder("AI eval thread at timeout:");
-                StackTraceElement[] evalStack = t.getStackTrace();
-                for (int i = 0; i < Math.min(30, evalStack.length); i++) {
-                    sb.append("\n\tat ").append(evalStack[i]);
-                }
-                System.out.println(sb);
-            }
-            // ask the eval thread to exit at the next SpellAbility check first: a brutal
-            // Thread.stop() mid-evaluation can leave partially mutated shared state behind
-            future.cancel(true);
-            try {
-                // join returns as soon as the eval thread exits, so the common case costs nothing. The full 2 s only matters
-                // for a thread inside code without check() (mana payment, threat prediction, simulation): giving up earlier
-                // just starts the stop() fallback sooner, and on Java 20+/Android stop() throws, so the thread would keep
-                // running next to the game thread
-                t.join(2000); // 2 seconds wait
-            } catch (InterruptedException ie) {
-                Thread.currentThread().interrupt();
-            }
-            if (t.isAlive()) {
-                // last resort, see #8302: the eval thread may be stuck inside a single
-                // evaluation or an infinite loop and never reach the cooperative exit
-                try {
-                    t.stop();
-                } catch (UnsupportedOperationException | NoSuchMethodError ex) {
-                    // Stop support: dropped by Android and Java 20 / 26 removed it completely - so sadly thread will keep running
-                }
-            }
-            // TODO mark some as skipped to increase chance to find something playable next priority
-            return null;
+            // null on timeout: TODO mark some as skipped to increase chance to find something playable next priority
+            return AiTaskRunner.call(eval, deadlineNanos, "Game AI Eval");
         } finally {
             AITimeoutTracker.end(aiId);
         }

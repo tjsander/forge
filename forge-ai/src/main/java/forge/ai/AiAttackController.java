@@ -892,13 +892,6 @@ public class AiAttackController {
             // nextTurn is now only used by effect from Oracle en-Vec, which can skip check must attack,
             // because creatures not chosen can't attack.
             if (!nextTurn) {
-                ExecutorService executor = Executors.newFixedThreadPool(
-                    Runtime.getRuntime().availableProcessors(), r -> {
-                        Thread t = Executors.defaultThreadFactory().newThread(r);
-                        t.setDaemon(true);
-                        return t;
-                    }
-                );
                 List<Callable<Integer>> tasks = new ArrayList<>();
                 final long deadline = AITimeoutTracker.deadlineNanos(id, timeoutNanos);
                 final AtomicBoolean combatClosed = new AtomicBoolean(false);
@@ -970,14 +963,11 @@ public class AiAttackController {
                 }
 
                 try {
-                    executor.invokeAll(tasks, Math.max(1L, AITimeoutTracker.remainingNanos(id, timeoutNanos)), TimeUnit.NANOSECONDS);
-                } catch (InterruptedException e) {
-                    Thread.currentThread().interrupt();
+                    AiTaskRunner.invokeAll(tasks, Math.max(1L, AITimeoutTracker.remainingNanos(id, timeoutNanos)));
                 } finally {
                     synchronized (combat) {
                         combatClosed.set(true); // late workers must not add attackers after we move on
                     }
-                    executor.shutdownNow();
                 }
 
                 if (attackersLeft.isEmpty()) {
