@@ -134,4 +134,29 @@ public class BeamMeUpTest extends AITest {
 
         assertTrue("the unenchanted creature can still be returned", canBeamUp(open, p));
     }
+
+    /**
+     * Scotty grants beam me up only during your main phase. The human casts graveyard cards through
+     * the Flashback zone view, so a granted keyword has to put the card there - and take it out again.
+     */
+    @Test
+    public void scottyGrantsBeamMeUpInMainPhaseOnly() {
+        Game game = initAndCreateGame();
+        Player p = game.getPlayers().get(1);
+        addCards("Island", 3, p);
+        addCard("Scotty, Miracle Worker", p);
+        addCard("Grizzly Bears", p);
+        Card div = addCardToZone("Divination", p, ZoneType.Graveyard);
+
+        game.getPhaseHandler().devModeSet(PhaseType.MAIN1, p);
+        game.getAction().checkStateEffects(true);
+        assertTrue("in the main phase the graveyard card can be beamed up", canBeamUp(div, p));
+        assertTrue("and it is offered in the castable-from-graveyard zone",
+                p.getCardsIn(ZoneType.Flashback).contains(div));
+
+        game.getPhaseHandler().devModeSet(PhaseType.UPKEEP, p);
+        game.getAction().checkStateEffects(true);
+        assertFalse("outside the main phase there is no beam me up", canBeamUp(div, p));
+        assertFalse(p.getCardsIn(ZoneType.Flashback).contains(div));
+    }
 }
