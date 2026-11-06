@@ -191,6 +191,10 @@ public class PhaseHandler implements IHasForgeLog {
                 }
                 playerTurn.incrementTurn();
 
+                // castable-zone entries that depend on the turn (Plot, Mayhem) change with it,
+                // and nothing else refreshes the view if no zone changes
+                game.getPlayers().forEach(Player::updateFlashbackForView);
+
                 final int lands = CardLists.count(playerTurn.getLandsInPlay(), CardPredicates.UNTAPPED);
                 playerTurn.setNumPowerSurgeLands(lands);
             }

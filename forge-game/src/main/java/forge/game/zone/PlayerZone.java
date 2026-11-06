@@ -67,6 +67,11 @@ public class PlayerZone extends Zone {
                     && c.wasDiscarded() && c.enteredThisTurn()) {
                 return true;
             }
+            // a plotted card can be cast for free on a later turn - same check GameActionUtil uses
+            // (sorcery timing is left out, like Flashback on a sorcery, so the list doesn't flicker)
+            if (PlayerZone.this.is(ZoneType.Exile) && c.isPlotted() && !c.enteredThisTurn()) {
+                return true;
+            }
             if (PlayerZone.this.is(ZoneType.Exile) && (c.isForetold() || c.isOnAdventure())) {
                 return true;
             }
