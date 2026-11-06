@@ -59,8 +59,12 @@ public class PlayerZone extends Zone {
             if (PlayerZone.this.is(ZoneType.Graveyard) && (c.hasKeyword(Keyword.FLASHBACK)
                     || c.hasKeyword(Keyword.RETRACE) || c.hasKeyword(Keyword.JUMP_START)
                     || c.hasKeyword(Keyword.ESCAPE) || c.hasKeyword(Keyword.DISTURB)
-                    || c.hasKeyword(Keyword.BEAM_ME_UP) || c.hasKeyword(Keyword.HARMONIZE)
-                    || c.hasKeyword(Keyword.MAYHEM))) {
+                    || c.hasKeyword(Keyword.BEAM_ME_UP) || c.hasKeyword(Keyword.HARMONIZE))) {
+                return true;
+            }
+            // Mayhem only works on a card discarded this turn - same check GameActionUtil uses
+            if (PlayerZone.this.is(ZoneType.Graveyard) && c.hasKeyword(Keyword.MAYHEM)
+                    && c.wasDiscarded() && c.enteredThisTurn()) {
                 return true;
             }
             if (PlayerZone.this.is(ZoneType.Exile) && (c.isForetold() || c.isOnAdventure())) {
